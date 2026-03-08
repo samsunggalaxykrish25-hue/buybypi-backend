@@ -9,12 +9,17 @@ app.use(cors());
 const PI_API_KEY = process.env.PI_API_KEY || 'ivunr6opfa1frialjn8bmfo48n6wdo3mbkqlyyzsm6xgy7i6cecmcnirnjp3zckn';
 const PI_API_URL = 'https://api.minepi.com';
 
-// ── Health check ──
+// Health check
 app.get('/', (req, res) => {
   res.json({ status: 'BuyByPi backend running ✅' });
 });
 
-// ── Approve Payment ──
+// Keep alive ping
+app.get('/ping', (req, res) => {
+  res.json({ pong: true });
+});
+
+// Approve Payment
 app.post('/approve', async (req, res) => {
   const { paymentId } = req.body;
   console.log('Approving payment:', paymentId);
@@ -22,7 +27,7 @@ app.post('/approve', async (req, res) => {
     const response = await axios.post(
       `${PI_API_URL}/v2/payments/${paymentId}/approve`,
       {},
-      { headers: { Authorization: `Key ${PI_API_KEY}` } }
+      { headers: { Authorization: `Key ${PI_API_KEY}` }, timeout: 15000 }
     );
     console.log('Payment approved ✅', response.data);
     res.json({ success: true, payment: response.data });
@@ -32,7 +37,7 @@ app.post('/approve', async (req, res) => {
   }
 });
 
-// ── Complete Payment ──
+// Complete Payment
 app.post('/complete', async (req, res) => {
   const { paymentId, txid } = req.body;
   console.log('Completing payment:', paymentId, 'txid:', txid);
@@ -40,7 +45,7 @@ app.post('/complete', async (req, res) => {
     const response = await axios.post(
       `${PI_API_URL}/v2/payments/${paymentId}/complete`,
       { txid },
-      { headers: { Authorization: `Key ${PI_API_KEY}` } }
+      { headers: { Authorization: `Key ${PI_API_KEY}` }, timeout: 15000 }
     );
     console.log('Payment completed ✅', response.data);
     res.json({ success: true, payment: response.data });
@@ -50,7 +55,7 @@ app.post('/complete', async (req, res) => {
   }
 });
 
-// ── Verify User Token ──
+// Verify User Token
 app.post('/verify-user', async (req, res) => {
   const { accessToken } = req.body;
   try {
@@ -63,6 +68,14 @@ app.post('/verify-user', async (req, res) => {
     res.status(401).json({ success: false, error: 'Invalid token' });
   }
 });
+
+// Self ping every 14 minutes to prevent sleep
+const BACKEND_URL = process.env.RENDER_EXTERNAL_URL || 'https://buybypi-backend.onrender.com';
+setInterval(() => {
+  axios.get(`${BACKEND_URL}/ping`)
+    .then(() => console.log('Self-ping ✅'))
+    .catch(() => console.log('Self-ping failed'));
+}, 14 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
